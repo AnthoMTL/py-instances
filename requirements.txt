@@ -1,1 +1,7 @@
 streamlit
+google-cloud-billing
+google-cloud-resource-manager
+google-cloud-compute
+google-cloud-service-usage
+google-api-core
+streamlit
