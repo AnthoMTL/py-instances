@@ -4,6 +4,7 @@ from google.cloud.resourcemanager_v3 import types
 from google.cloud import compute_v1
 from google.cloud import service_usage_v1
 from google.api_core import operation
+#from google.cloud import iam_admin_v1
 import uuid
 import os
 import random
@@ -18,7 +19,7 @@ zone = "us-central1-c"  # Replace with your desired zone
 region = "us-central1"  # Replace with your desired region
 source_image = "projects/test-metal-358914/global/images/atkins-gold"  # Replace with your source image
 network_name = "atkins-custom-vpc"
-subnet_name = "atkins-subnet"
+subnet_name = "subnet1"
 ip_range = "172.18.100.0/24"
 
 def find_folder_id_recursive(folder_client, parent, folder_path):
@@ -92,11 +93,11 @@ def create_project_in_folder(project_id):
 
     # Set Billing account
     try:
-        st.markdown(f"**Attaching billing account: {BILLING_ACCOUNT_ID} to project : {project_name}**")
+        #st.markdown(f"**Attaching billing account to project**")
         billing_client.update_project_billing_info(
             name=project_name, project_billing_info={"billing_account_name": BILLING_ACCOUNT_ID}
         )
-        st.success(f"Billing account attached successfully to {project_name}" , icon="✅")
+        #st.success(f"Billing account attached successfully to {project_name}" , icon="✅")
 #        print(f"Billing account attached successfully to {project_name}")
     except Exception as e:
         raise ValueError(f"An error occurred when attaching the billing account: {e}")
@@ -105,29 +106,6 @@ def create_project_in_folder(project_id):
 def generate_unique_project_id(name_project):
     """Generates a unique project ID."""
     return f"project-{name_project}-{uuid.uuid4().hex[:4]}"
-
-def get_default_compute_engine_service_account(project_id, project_number):
-    """
-    Retrieves the default Compute Engine service account for a given project.
-
-    Args:
-        project_id: The ID of the project.
-
-    Returns:
-        The email address of the default Compute Engine service account, or None if not found.
-    """
-    try:
-        iam_client = compute_v1.ServiceAccountsClient()
-        service_account_name = f"{project_number}-compute@developer.gserviceaccount.com"
-        # Check if the service account exists
-        request = compute_v1.GetServiceAccountRequest(project=project_id, service_account=service_account_name)
-        service_account = iam_client.get(request=request)
-        
-        print(f"Default Compute Engine service account found: {service_account.email}")
-        return service_account.email
-    except Exception as e:
-        print(f"Error getting default Compute Engine service account: {e}")
-        return None
 
 def enable_compute_engine_api(project_id):
     """Enables the Compute Engine API for the specified project."""
@@ -180,9 +158,8 @@ def create_custom_vpc_with_subnet(project_id, region):
             return
         except Exception:
             print(f"Subnet '{subnet_name}' does not exists in project '{project_id}' region '{region}'.")
-
     except Exception:
-        print(f"VPC network '{network_name}' does not exist in project '{project_id}'. Creating...")
+       # print(f"VPC network '{network_name}' does not exist in project '{project_id}'. Creating...")
 
         # Create the custom VPC network
         network_body = compute_v1.Network()
@@ -193,7 +170,7 @@ def create_custom_vpc_with_subnet(project_id, region):
         )
         operation = network_client.insert(request=request)
 
-        st.markdown(f"**Creating VPC network: {network_name} **")
+        st.markdown(f"**Creating VPC network: {network_name}**")
 
         # Wait for network creation operation to complete
         operation_client = compute_v1.GlobalOperationsClient()
@@ -204,7 +181,8 @@ def create_custom_vpc_with_subnet(project_id, region):
             #print(f"Operation status: {operation.status}")
         if operation.error:
             raise ValueError(f"An error occured during the creation of the network {network_name}: {operation.error}")
-        st.success(f"VPC network '{network_name}' created successfully.")
+        st.success(f"VPC network created successfully.", icon="✅")
+        #print(f"VPC network created successfully.")
     
     # Create the subnet
     subnet_body = compute_v1.Subnetwork()
@@ -214,7 +192,7 @@ def create_custom_vpc_with_subnet(project_id, region):
     subnet_body.network = f"projects/{project_id}/global/networks/{network_name}"  # Link subnet to the network
     request = compute_v1.InsertSubnetworkRequest(project=project_id, region=region, subnetwork_resource=subnet_body)
     operation = subnet_client.insert(request=request)
-    st.markdown(f"**Creating Subnet: {subnet_name} in region {region} **")
+    #st.markdown(f"**Creating Subnet in region {region}**")
 
     # Wait for subnet creation operation to complete
     operation_client = compute_v1.RegionOperationsClient()
@@ -222,11 +200,11 @@ def create_custom_vpc_with_subnet(project_id, region):
         operation = operation_client.wait(
             project=project_id, region=region, operation=operation.name, timeout=300
         )
-        print(f"Operation status: {operation.status}")
+        #print(f"Operation status: {operation.status}")
     if operation.error:
         raise ValueError(f"An error occured during the creation of the subnet {subnet_name}: {operation.error}")
 
-    st.success(f"Subnet '{subnet_name}' created successfully in region '{region}'.")
+    #st.success(f"Subnet created successfully in region '{region}'.", icon="✅")
 
 def create_instance(project_id, zone, service_account_email, instance_name, machine_type, subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type):
     """
@@ -362,13 +340,14 @@ def create_instance(project_id, zone, service_account_email, instance_name, mach
         operation = operation_client.wait(
             project=project_id, zone=zone, operation=operation.name, timeout=300
         )
-        print(f"Operation status: {operation.status}")
+        #print(f"Operation status: {operation.status}")
 
     if operation.error:
-        print(f"Error creating instance: {operation.error}")
+        st.error(f"Error creating instance:")
     else:
-        print(f"Instance {instance_name} created successfully.")
-        print(f"Instance link: {operation.target_link}")   
+        st.success(f"Instance created successfully.", icon="✅")
+        #print(f"Instance {instance_name} created successfully.")
+        #print(f"Instance link: {operation.target_link}")   
 
 def disable():
     st.session_state.disabled = True
@@ -377,14 +356,19 @@ def disable():
 if __name__ == "__main__":
     logo = "logo.png"
     st.image(logo)
-    st.title('\n''Atkins Data Crunching App''\n')
-    st.header('1. Project & VMs creation')
+    st.title('\n''Atkins Flood App''\n')
+    st.header('1. Pre-Requisite')
+    st.markdown("- Ensure you have a @hazserv.com account")
+    st.markdown("- Download and install the [IAP RDP Client](https://googlecloudplatform.github.io/iap-desktop/) to access your VM")
+    st.markdown("- Create your environment using the form below")
+    st.markdown("- Follow the guide here to connect to your VMs")
+    st.header('2. Project & VMs creation')
     # Initialize disabled for form_submit_button to False
     if "disabled" not in st.session_state:
         st.session_state.disabled = False
     with st.form('my_form',enter_to_submit=False):    
         # Input widgets
-        name_project = st.text_input('Enter your username:', max_chars=10)
+        name_project = st.text_input('Enter your username:',"ie:username@hazserv.com", max_chars=15)
         vm_size = st.selectbox('Choose your VM size', ['Small', 'Medium', 'Large'])
         vm_numbers = st.select_slider('How many VMs do you need', ['1', '2', '3', '4', '5'])
         # Every form must have a submit button
@@ -395,7 +379,7 @@ if __name__ == "__main__":
             new_project_id = generate_unique_project_id(name_project)
             instance_name = f"instance-{uuid.uuid4().hex[:4]}"  # Replace with your desired instance name
             machine_type = f"projects/{new_project_id}/zones/{zone}/machineTypes/e2-medium"  # Replace with your desired machine type
-            subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/atkins-subnet"  
+            compute_subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/{subnet_name}"  
             disk_size_gb = 50
             disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
             second_disk_size_gb = 300
@@ -408,11 +392,9 @@ if __name__ == "__main__":
             try:
                 enable_compute_engine_api(new_project_id)
                 time.sleep(25)
-                create_custom_vpc_with_subnet(new_project_id, region)
-                st.success("Compute Engine & VPC Network configuration complete.", icon="✅")
-                service_account_email = get_default_compute_engine_service_account(new_project_id, response['project_number'])
-            except ValueError as e:
-                print(f"Error: {e}")
+                create_custom_vpc_with_subnet(new_project_id, region);
+                p_number = response["project_number"];
+                service_account_email = f"{p_number}-compute@developer.gserviceaccount.com"
             except Exception as e:
                 print(f"An unexpected error occurred: {e}")
             try:
@@ -420,12 +402,8 @@ if __name__ == "__main__":
                 # Loop to create multiple instances
                 for i in range(int(vm_numbers)):
                     instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
-                    create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
+                    create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
+                st.markdown("**Done !**")
+                st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
             except Exception as e:
-                print(f"An error occurred instance creation: {e}")
-            
-            #st.header('2. Access your VM')
-            st.subheader("- Download the [IAP RDP Client](https://googlecloudplatform.github.io/iap-desktop/) to access your VM ")
-            st.subheader("- Use your account @hazserv.com and Project:" + f") {response['project_id']} ")
-
-    
+                st.error(f"An error occurred instance creation: {e}")
