@@ -362,6 +362,7 @@ if __name__ == "__main__":
     st.markdown("- Download and install the [IAP RDP Client](https://googlecloudplatform.github.io/iap-desktop/) to access your VM")
     st.markdown("- Create your environment using the form below")
     st.markdown("- Follow the guide here to connect to your VMs")
+    st.context.headers
     st.header('2. Project & VMs creation')
     # Initialize disabled for form_submit_button to False
     if "disabled" not in st.session_state:
