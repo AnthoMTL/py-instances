@@ -395,7 +395,7 @@ def create_regional_standard_bucket(project_id, region):
 if __name__ == "__main__":
     logo = "logo.png"
     st.image(logo)
-    st.title('\n''Atkins Flood App''\n')
+    st.title('\n''XXXX Flood App''\n')
     tab1, tab2, tab3, tab4 = st.tabs(["0-README", "1-Create your environment", "2-Upload your Data", "3-Access your VMs"])
     with tab1:
         st.write("Hello")
