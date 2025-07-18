@@ -11,16 +11,16 @@ import random
 import time
 import streamlit as st
 
-BILLING_ACCOUNT_ID = "billingAccounts/015F68-FEF42E-E10820"  # Replace with your actual billing account ID - new format
-TARGET_FOLDER_PATH = ["North America", "atkins"]  # Define the path to the target folder.
-ORGANIZATION_ID = "organizations/690423753921"  # Replace with your actual organization id
+BILLING_ACCOUNT_ID = "billingAccounts/015F68-XXXX-XXXXX"  # Replace with your actual billing account ID - new format
+TARGET_FOLDER_PATH = ["FOLDER", "SUBFOLDER"]  # Define the path to the target folder.
+ORGANIZATION_ID = "organizations/XXXXX"  # Replace with your actual organization id
 zone = "us-central1-c"  # Replace with your desired zone
 region = "us-central1"  # Replace with your desired region
-source_image = "projects/test-metal-358914/global/images/atkins-gold"  # Replace with your source image
-network_name = "atkins-custom-vpc"
+source_image = "projects/YOUR-PROJECT_ID/global/images/SOURCE-IMAGE-NAME"  # Replace with your source image
+network_name = "NAME-custom-vpc"
 subnet_name = "subnet1"
 ip_range = "172.18.100.0/24"
-win_startup_script = "gs://win-start-scripts/ps-disk.ps1"
+win_startup_script = "gs://YOUR-BUCKET-NAME/ps-disk.ps1" # Modify to use your own GCS bucket
 
 def find_folder_id_recursive(folder_client, parent, folder_path):
     """
