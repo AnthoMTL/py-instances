@@ -4,14 +4,13 @@ from google.cloud.resourcemanager_v3 import types
 from google.cloud import compute_v1
 from google.cloud import service_usage_v1
 from google.api_core import operation
-#from google.cloud import iam_admin_v1
+from google.cloud import storage
 import uuid
 import os
 import random
 import time
 import streamlit as st
 
-# Static variable for the billing account ID
 BILLING_ACCOUNT_ID = "billingAccounts/015F68-FEF42E-E10820"  # Replace with your actual billing account ID - new format
 TARGET_FOLDER_PATH = ["North America", "atkins"]  # Define the path to the target folder.
 ORGANIZATION_ID = "organizations/690423753921"  # Replace with your actual organization id
@@ -21,6 +20,7 @@ source_image = "projects/test-metal-358914/global/images/atkins-gold"  # Replace
 network_name = "atkins-custom-vpc"
 subnet_name = "subnet1"
 ip_range = "172.18.100.0/24"
+win_startup_script = "gs://win-start-scripts/ps-disk.ps1"
 
 def find_folder_id_recursive(folder_client, parent, folder_path):
     """
@@ -287,6 +287,7 @@ def create_instance(project_id, zone, service_account_email, instance_name, mach
     metadata.items = [
         compute_v1.Items(key="enable-osconfig", value="TRUE"),
         compute_v1.Items(key="enable-oslogin", value="true"),
+        compute_v1.Items(key="sysprep-specialize-script-url", value=win_startup_script),
     ]
 
     # Define the shielded instance configuration
@@ -352,59 +353,125 @@ def create_instance(project_id, zone, service_account_email, instance_name, mach
 def disable():
     st.session_state.disabled = True
 
+def upload_files_to_bucket(project_id, uploaded_files):
+    storage_client = storage.Client(project=project_id)
+    bucket_name = project_id
+    bucket = storage_client.bucket(bucket_name)
+
+    for uploaded_file in uploaded_files:
+        try:
+            file_name = uploaded_file.name
+            blob = bucket.blob(file_name)
+            with st.spinner("Uploading...", show_time=True):
+                blob.upload_from_file(uploaded_file)
+            st.success(f"File '{file_name}' uploaded.", icon="✅")
+        except Exception as e:
+            st.error(f"Error uploading file '{file_name}': {e}")
+            return
+
+def create_regional_standard_bucket(project_id, region):
+    """
+    Creates a regional standard bucket with uniform access control.
+
+    Args:
+        project_id: The ID of the project.
+        region: The region in which to create the bucket.
+    """
+    storage_client = storage.Client(project=project_id)
+    bucket_name = project_id  # Use the project ID as the bucket name
+    bucket = storage_client.bucket(bucket_name)
+    bucket.location = region
+    bucket.storage_class = "STANDARD"
+    bucket.iam_configuration.uniform_bucket_level_access_enabled = True
+
+    try:
+        bucket = storage_client.create_bucket(bucket)
+        print(f"Bucket {bucket.name} created in {bucket.location} with storage class {bucket.storage_class} and uniform access control.")
+        return bucket
+    except Exception as e:
+        raise ValueError(f"Error creating bucket: {e}")
+    
 # Example Usage (Integrate with project creation):
 if __name__ == "__main__":
     logo = "logo.png"
     st.image(logo)
     st.title('\n''Atkins Flood App''\n')
-    st.header('1. Pre-Requisite')
-    st.markdown("- Ensure you have a @hazserv.com account")
-    st.markdown("- Download and install the [IAP RDP Client](https://googlecloudplatform.github.io/iap-desktop/) to access your VM")
-    st.markdown("- Create your environment using the form below")
-    st.markdown("- Follow the guide here to connect to your VMs")
-    st.context.headers
-    st.header('2. Project & VMs creation')
-    # Initialize disabled for form_submit_button to False
-    if "disabled" not in st.session_state:
-        st.session_state.disabled = False
-    with st.form('my_form',enter_to_submit=False):    
-        # Input widgets
-        name_project = st.text_input('Enter your username:',"ie:username@hazserv.com", max_chars=15)
-        vm_size = st.selectbox('Choose your VM size', ['Small', 'Medium', 'Large'])
-        vm_numbers = st.select_slider('How many VMs do you need', ['1', '2', '3', '4', '5'])
-        # Every form must have a submit button
-        submitted = st.form_submit_button('Submit', on_click=disable, disabled=st.session_state.disabled)
+    tab1, tab2, tab3, tab4 = st.tabs(["0-README", "1-Create your environment", "2-Upload your Data", "3-Access your VMs"])
+    with tab1:
+        st.write("Hello")
+    with tab2:
+        col1, col2 = st.columns(2, gap="medium",vertical_alignment="top")
+        with col1:
+            st.header('Environment creation')
+            st.context.headers
+            auth_email_header = st.context.headers.get("X-Goog-Authenticated-User-Email")
+            user_email_to_display = "N/A"
+            if auth_email_header:
+                parts = auth_email_header.split(":")
+                if len(parts) > 1:
+                    user_email_to_display = parts[1]
+                else:
+                    user_email_to_display = "Format error in email header"
+            else:
+                user_email_to_display = "Email header not found"
 
-# Start Code Execution when button is clicked.
-        if submitted:
-            new_project_id = generate_unique_project_id(name_project)
-            instance_name = f"instance-{uuid.uuid4().hex[:4]}"  # Replace with your desired instance name
-            machine_type = f"projects/{new_project_id}/zones/{zone}/machineTypes/e2-medium"  # Replace with your desired machine type
-            compute_subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/{subnet_name}"  
-            disk_size_gb = 50
-            disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
-            second_disk_size_gb = 300
-            second_disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
-            try:
-                response = create_project_in_folder(new_project_id)
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
-                st.error(f"An unexpected error occurred when creating project: {e}")
-            try:
-                enable_compute_engine_api(new_project_id)
-                time.sleep(25)
-                create_custom_vpc_with_subnet(new_project_id, region);
-                p_number = response["project_number"];
-                service_account_email = f"{p_number}-compute@developer.gserviceaccount.com"
-            except Exception as e:
-                print(f"An unexpected error occurred: {e}")
-            try:
-                time.sleep(15)
-                # Loop to create multiple instances
-                for i in range(int(vm_numbers)):
-                    instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
-                    create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
-                st.markdown("**Done !**")
-                st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
-            except Exception as e:
-                st.error(f"An error occurred instance creation: {e}")
+        st.markdown(f"**Authenticated User Email:** {user_email_to_display}")
+        # Initialize disabled for form_submit_button to False
+        name_project = st.text_input('Enter your username:',"ie:username@hazserv.com", max_chars=15)
+        default_value = " - "
+        choices = [" - ",'Small (8 vCPU - 64Gb Ram)', 'Medium (30 vCPU - 240Gb Ram)', 'Large(90 vCPU - 720Gb Ram)']
+        vm_size = st.selectbox('Choose your VM size', choices, index=choices.index(default_value), key="selected_vm_size")
+        second_disk_size_gb = st.text_input('Disk Size in GB:', max_chars=4)
+        vm_numbers = st.select_slider('How many VMs do you need', ['1', '2', '3', '4', '5'])
+        if "disabled" not in st.session_state:
+            st.session_state.disabled = False
+        with st.form('my_form',enter_to_submit=False):
+                # Every form must have a submit button
+                submitted = st.form_submit_button('Start', on_click=disable, disabled=st.session_state.disabled)
+        with col2:
+            st.header('Cost')
+            st.write(f"Your VMs cost: {vm_size}") 
+            
+            if submitted:
+                    new_project_id = generate_unique_project_id(name_project)
+                    instance_name = f"instance-{uuid.uuid4().hex[:4]}"
+                    machine_type = f"projects/{new_project_id}/zones/{zone}/machineTypes/e2-medium"
+                    compute_subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/{subnet_name}"  
+                    disk_size_gb = 50
+                    disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
+                    second_disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
+                    try:
+                        response = create_project_in_folder(new_project_id)
+                    except Exception as e:
+                        st.error(f"An unexpected error occurred when creating project: {e}")
+                    try:
+                        enable_compute_engine_api(new_project_id)
+                        time.sleep(10)
+                        create_regional_standard_bucket(new_project_id, region);
+                        create_custom_vpc_with_subnet(new_project_id, region);
+                        p_number = response["project_number"];
+                        service_account_email = f"{p_number}-compute@developer.gserviceaccount.com"
+                    except Exception as e:
+                        print(f"An unexpected error occurred: {e}")            
+                    try:
+                        time.sleep(10)
+                        # Loop to create multiple instances
+                        for i in range(int(vm_numbers)):
+                            instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
+                            create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
+                        st.markdown("**Done !**")
+                        st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
+                    except Exception as e:
+                        st.error(f"An error occurred instance creation: {e}")    
+    with tab3:
+        st.header('Upload your data')
+        uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True)
+        if st.button("Upload", type="primary"):
+            if uploaded_files is not None:
+                upload_files_to_bucket(new_project_id, uploaded_files)
+    with tab4:
+        st.markdown("- Download and install the [IAP RDP Client](https://googlecloudplatform.github.io/iap-desktop/) to access your VM")
+        st.markdown("- Follow the guide here to connect to your VMs")
+
+
+        # st.write(st.context.headers) # You can keep this if you still want to see all headers for debugging
