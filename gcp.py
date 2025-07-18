@@ -29,7 +29,7 @@ def find_folder_id_recursive(folder_client, parent, folder_path):
     Args:
         folder_client: The resourcemanager_v3.FoldersClient.
         parent: The parent resource (organization or folder) to start the search.
-        folder_path: A list of folder names representing the path (e.g., ["North America", "atkins"]).
+        folder_path: A list of folder names representing the path (e.g., ["FOLDER", "SUBFOLDER"]).
 
     Returns:
         The folder ID (full resource name) if found, otherwise None.
