@@ -400,24 +400,21 @@ if __name__ == "__main__":
     with tab1:
         st.write("Hello")
     with tab2:
-        col1, col2 = st.columns(2, gap="medium",vertical_alignment="top")
-        with col1:
-            st.header('Environment creation')
-            st.context.headers
-            auth_email_header = st.context.headers.get("X-Goog-Authenticated-User-Email")
-            user_email_to_display = "N/A"
-            if auth_email_header:
-                parts = auth_email_header.split(":")
-                if len(parts) > 1:
-                    user_email_to_display = parts[1]
-                else:
-                    user_email_to_display = "Format error in email header"
+        st.header('Environment creation')
+        #st.context.headers
+        auth_email_header = st.context.headers.get("X-Goog-Authenticated-User-Email")
+        user_email_to_display = "N/A"
+        if auth_email_header:
+            parts = auth_email_header.split(":")
+            if len(parts) > 1:
+                user_email_to_display = parts[1]
             else:
-                user_email_to_display = "Email header not found"
-
+                user_email_to_display = "Format error in email header"
+        else:
+            user_email_to_display = "Email header not found"        
         st.markdown(f"**Authenticated User Email:** {user_email_to_display}")
         # Initialize disabled for form_submit_button to False
-        name_project = st.text_input('Enter your username:',"ie:username@hazserv.com", max_chars=15)
+        name_project = st.text_input('Your username:',f"{user_email_to_display}", max_chars=15)
         default_value = " - "
         choices = [" - ",'Small (8 vCPU - 64Gb Ram)', 'Medium (30 vCPU - 240Gb Ram)', 'Large(90 vCPU - 720Gb Ram)']
         vm_size = st.selectbox('Choose your VM size', choices, index=choices.index(default_value), key="selected_vm_size")
@@ -426,43 +423,39 @@ if __name__ == "__main__":
         if "disabled" not in st.session_state:
             st.session_state.disabled = False
         with st.form('my_form',enter_to_submit=False):
-                # Every form must have a submit button
-                submitted = st.form_submit_button('Start', on_click=disable, disabled=st.session_state.disabled)
-        with col2:
-            st.header('Cost')
-            st.write(f"Your VMs cost: {vm_size}") 
-            
-            if submitted:
-                    new_project_id = generate_unique_project_id(name_project)
-                    instance_name = f"instance-{uuid.uuid4().hex[:4]}"
-                    machine_type = f"projects/{new_project_id}/zones/{zone}/machineTypes/e2-medium"
-                    compute_subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/{subnet_name}"  
-                    disk_size_gb = 50
-                    disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
-                    second_disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
-                    try:
-                        response = create_project_in_folder(new_project_id)
-                    except Exception as e:
-                        st.error(f"An unexpected error occurred when creating project: {e}")
-                    try:
-                        enable_compute_engine_api(new_project_id)
-                        time.sleep(10)
-                        create_regional_standard_bucket(new_project_id, region);
-                        create_custom_vpc_with_subnet(new_project_id, region);
-                        p_number = response["project_number"];
-                        service_account_email = f"{p_number}-compute@developer.gserviceaccount.com"
-                    except Exception as e:
-                        print(f"An unexpected error occurred: {e}")            
-                    try:
-                        time.sleep(10)
-                        # Loop to create multiple instances
-                        for i in range(int(vm_numbers)):
-                            instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
-                            create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
-                        st.markdown("**Done !**")
-                        st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
-                    except Exception as e:
-                        st.error(f"An error occurred instance creation: {e}")    
+            # Every form must have a submit button
+            submitted = st.form_submit_button('Start', on_click=disable, disabled=st.session_state.disabled)
+        if submitted:
+            new_project_id = generate_unique_project_id(name_project)
+            instance_name = f"instance-{uuid.uuid4().hex[:4]}"
+            machine_type = f"projects/{new_project_id}/zones/{zone}/machineTypes/e2-medium"
+            compute_subnet_name = f"projects/{new_project_id}/regions/us-central1/subnetworks/{subnet_name}"  
+            disk_size_gb = 50 # This line was already correctly indented.
+            disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
+            second_disk_type = f"projects/{new_project_id}/zones/{zone}/diskTypes/pd-balanced"
+            try:
+                response = create_project_in_folder(new_project_id)
+            except Exception as e:
+                st.error(f"An unexpected error occurred when creating project: {e}")
+            try:
+                enable_compute_engine_api(new_project_id)
+                time.sleep(10)
+                create_regional_standard_bucket(new_project_id, region);
+                create_custom_vpc_with_subnet(new_project_id, region);
+                p_number = response["project_number"];
+                service_account_email = f"{p_number}-compute@developer.gserviceaccount.com"
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")            
+            try:
+                time.sleep(10) # This line was already correctly indented.
+                # Loop to create multiple instances
+                for i in range(int(vm_numbers)):
+                    instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
+                    create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
+                st.markdown("**Done !**")
+                st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
+            except Exception as e:
+                st.error(f"An error occurred instance creation: {e}")    
     with tab3:
         st.header('Upload your data')
         uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True)
