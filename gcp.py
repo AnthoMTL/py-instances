@@ -453,7 +453,7 @@ if __name__ == "__main__":
                     instance_name = f"instance-{name_project}-{i}-{uuid.uuid4().hex[:4]}"  # Unique instance name
                     create_instance(new_project_id, zone, service_account_email, instance_name, machine_type, compute_subnet_name, source_image, disk_size_gb, disk_type, second_disk_size_gb, second_disk_type)
                 st.markdown("**Done !**")
-                st.markdown(f"Sign-in using your @hazserv.com account and use project ID: {new_project_id}")
+                st.markdown(f"Sign-in using your @XXX.com account and use project ID: {new_project_id}")
             except Exception as e:
                 st.error(f"An error occurred instance creation: {e}")    
     with tab3:
